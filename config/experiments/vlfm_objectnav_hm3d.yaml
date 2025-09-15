@@ -3,97 +3,97 @@
 # Copyright (c) 2023 Boston Dynamics AI Institute LLC. All rights reserved.
 
 defaults:
-  - /habitat_baselines: habitat_baselines_rl_config_base
-  - /benchmark/nav/objectnav: objectnav_hm3d
-  - /habitat/task/lab_sensors:
-      - base_explorer
-      - compass_sensor
-      - gps_sensor
-      - heading_sensor
-      - frontier_sensor
-  - /habitat/task/measurements:
-    - frontier_exploration_map
-    - traveled_stairs
-  - /habitat_baselines/rl/policy: vlfm_policy
+  - /habitat_baselines: habitat_baselines_rl_config_base #载入RL基础模块
+  - /benchmark/nav/objectnav: objectnav_hm3d  # 载入objectnav在hm3d数据集上的通用任务
+  - /habitat/task/lab_sensors: # 启用以下传感器
+      - base_explorer  #底盘探索
+      - compass_sensor  #指南针
+      - gps_sensor  #GPS传感器
+      - heading_sensor  #朝向传感器
+      - frontier_sensor  #边界传感器
+  - /habitat/task/measurements:   #启用两个度量
+    - frontier_exploration_map    # frontier探索地图
+    - traveled_stairs             #累计爬楼梯
+  - /habitat_baselines/rl/policy: vlfm_policy   #使用vlfm_policy策略
   - _self_
 
 habitat:
   environment:
     iterator_options:
-      max_scene_repeat_steps: 50000
+      max_scene_repeat_steps: 50000    #单场景最大迭代步数
   task:
-    success_reward: 2.5
-    slack_reward: -1e-3
-    lab_sensors:
+    success_reward: 2.5     #成功到达目标的奖励
+    slack_reward: -1e-3     #每一步的惩罚
+    lab_sensors:             
       base_explorer:
-        turn_angle: 30
+        turn_angle: 30   # 每次转向30度？？？
 
 habitat_baselines:
-  evaluate: True
-  eval_ckpt_path_dir: data/dummy_policy.pth
-  num_environments: 1
-  load_resume_state_config: False
+  evaluate: True        #是否运行评估eval模式
+  eval_ckpt_path_dir: data/dummy_policy.pth    # 评估用的权重路径
+  num_environments: 1 # 并行环境数，1易排错，占用低
+  load_resume_state_config: False #是否从保存的训练状态恢复配置进行训练
 
-  torch_gpu_id: 0
-  tensorboard_dir: "tb"
-  video_dir: "video_dir"
-  test_episode_count: -1
-  checkpoint_folder: "data/new_checkpoints"
-  trainer_name: "vlfm"
-  num_updates: 270000
-  log_interval: 10
-  num_checkpoints: 100
+  torch_gpu_id: 0 #使用0号GPU
+  tensorboard_dir: "tb" #TensorBoard日志目录
+  video_dir: "video_dir" #视频保存目录
+  test_episode_count: -1 #评测的episode数量，-1表示所有
+  checkpoint_folder: "data/new_checkpoints" #checkpoint目录
+  trainer_name: "vlfm" #指定使用哪个trainer
+  num_updates: 270000 #训练时的更新步数上线
+  log_interval: 10 #日志记录间隔
+  num_checkpoints: 100 #最多保留多少个checkpoint
   # Force PyTorch to be single threaded as
   # this improves performance considerably
-  force_torch_single_threaded: True
+  force_torch_single_threaded: True #让 PyTorch 单线程（配合多环境时减少 CPU 抢占，常见优化）
 
   eval:
-    split: "val"
+    split: "val" #评估使用HM3D的val划分数据集
     video_option: ["disk"]
 
-  rl:
+  rl: #RL配置相关
 
     policy:
-      name: "HabitatITMPolicyV2"
+      name: "HabitatITMPolicyV2" #使用HabitatITMPolicyV2策略
 
     ppo:
       # ppo params
-      clip_param: 0.2
-      ppo_epoch: 4
-      num_mini_batch: 2
-      value_loss_coef: 0.5
-      entropy_coef: 0.01
-      lr: 2.5e-4
-      eps: 1e-5
-      max_grad_norm: 0.2
-      num_steps: 64
-      use_gae: True
-      gamma: 0.99
-      tau: 0.95
-      use_linear_clip_decay: False
-      use_linear_lr_decay: False
-      reward_window_size: 50
+      clip_param: 0.2 # PPO裁剪阈值 
+      ppo_epoch: 4 #每次更新时的PPO迭代次数
+      num_mini_batch: 2 #一次更新里最小batch
+      value_loss_coef: 0.5 # 价值损失函数的权重
+      entropy_coef: 0.01 # 策略熵权重
+      lr: 2.5e-4 # 学习率
+      eps: 1e-5 # Adam优化器的epsilon参数
+      max_grad_norm: 0.2 # 梯度裁剪阈值
+      num_steps: 64 # rollout的时间步长
+      use_gae: True # 使用GAE优势估计
+      gamma: 0.99 # 折扣因子
+      tau: 0.95 # GAE的衰减参数
+      use_linear_clip_decay: False #是否线性衰减裁剪
+      use_linear_lr_decay: False #是否使用线性衰减裁剪
+      reward_window_size: 50 # 统计奖励的窗口大小
 
-      use_normalized_advantage: False
+      use_normalized_advantage: False # 是否归一化优势
 
-      hidden_size: 512
+      hidden_size: 512 # RNN隐藏层大小/策略/价值网络隐层规模
 
     ddppo:
-      sync_frac: 0.6
+      sync_frac: 0.6 # 分布式时的梯度/参数同步比例（提高吞吐/稳定性）
       # The PyTorch distributed backend to use
-      distrib_backend: NCCL
+      distrib_backend: NCCL # 分布式通信后端：NCCL（GPU 上的常用选择）
       # Visual encoder backbone
-      pretrained_weights: data/ddppo-models/gibson-2plus-resnet50.pth
+      pretrained_weights: data/ddppo-models/gibson-2plus-resnet50.pth #可选的视觉编码器预训练权重路径（Gibson-2+ ResNet50）
       # Initialize with pretrained weights
-      pretrained: False
+      pretrained: False #是否整体用预训练权重初始化
       # Initialize just the visual encoder backbone with pretrained weights
-      pretrained_encoder: False
+      pretrained_encoder: False #是否仅初始化视觉编码器为预训练（不动其余头部）
       # Whether or not the visual encoder backbone will be trained.
-      train_encoder: True
+      train_encoder: True #视觉编码器是否参与训练（True 表示微调）
       # Whether or not to reset the critic linear layer
-      reset_critic: False
+      reset_critic: False #是否重置价值头（切换任务/架构时可能需要）
 
       # Model parameters
-      backbone: resnet50
-      rnn_type: LSTM
-      num_recurrent_layers: 2
+      backbone: resnet50 #视觉 backbone：ResNet-50
+      rnn_type: LSTM #时序模块类型：LSTM
+      num_recurrent_layers: 2 #RNN 层数（2 层 LSTM）

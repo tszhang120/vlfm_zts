@@ -192,3 +192,4 @@ __pycache__/
 
 data/
 *.pt
+.history/

@@ -47,12 +47,14 @@ def main(cfg: DictConfig) -> None:
         exit(1)
 
     cfg = patch_config(cfg)
-    with read_write(cfg):
+    with read_write(cfg):  # 这里是把语义传感器去掉，做到轻量
         try:
             cfg.habitat.simulator.agents.main_agent.sim_sensors.pop("semantic_sensor")
         except KeyError:
             pass
-    execute_exp(cfg, "eval" if cfg.habitat_baselines.evaluate else "train")
+    execute_exp(
+        cfg, "eval" if cfg.habitat_baselines.evaluate else "train"
+    )  # 如果habitat_baselines.evaluate 是True，执行eval，否则执行train
 
 
 if __name__ == "__main__":
