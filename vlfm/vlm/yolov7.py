@@ -12,35 +12,35 @@ from vlfm.vlm.detections import ObjectDetections
 
 from .server_wrapper import ServerMixin, host_model, send_request, str_to_image
 
-sys.path.insert(0, "yolov7/")
+sys.path.insert(0, "yolov7/")  #临时把yolov7加入到sys.path以便直接import官方yolov7的实用函数和模型加载器
 try:
-    from models.experimental import attempt_load  # noqa: E402
-    from utils.datasets import letterbox  # noqa: E402
+    from models.experimental import attempt_load  # noqa: E402      # 按权重文件加载模型
+    from utils.datasets import letterbox  # noqa: E402    # letterbox：保持长宽比进行缩放
     from utils.general import (  # noqa: E402
-        check_img_size,
-        non_max_suppression,
-        scale_coords,
+        check_img_size,                                  # 检查图片尺寸是否与模型兼容
+        non_max_suppression,                               #NMS与坐标缩放工具
+        scale_coords,                                    # NMS与坐标缩放工具
     )
-    from utils.torch_utils import TracedModel  # noqa: E402
+    from utils.torch_utils import TracedModel  # noqa: E402        # 将模型trace加速推理
 except Exception:
     print("Could not import yolov7. This is OK if you are only using the client.")
 sys.path.pop(0)
 
 
 class YOLOv7:
-    def __init__(self, weights: str, image_size: int = 640, half_precision: bool = True):
+    def __init__(self, weights: str, image_size: int = 640, half_precision: bool = True):         #定义检测器，分别是权重路径、输入尺寸、是否使用半精度
         """Loads the model and saves it to a field."""
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-        self.half_precision = self.device.type != "cpu" and half_precision
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")  #选择gpu或cpu
+        self.half_precision = self.device.type != "cpu" and half_precision                        #只在GPU上启用半精度
         self.model = attempt_load(weights, map_location=self.device)  # load FP32 model
         stride = int(self.model.stride.max())  # model stride
-        self.image_size = check_img_size(image_size, s=stride)  # check img_size
-        self.model = TracedModel(self.model, self.device, self.image_size)
+        self.image_size = check_img_size(image_size, s=stride)  # check img_size    #读取模型步幅并校验
+        self.model = TracedModel(self.model, self.device, self.image_size)         # 模型包装为TraceModel，便于加速和导出
         if self.half_precision:
-            self.model.half()  # to FP16
+            self.model.half()  # to FP16        #需要时将权重和计算切到FP16
 
         # Warm-up
-        if self.device.type != "cpu":
+        if self.device.type != "cpu":            #GPU预热三次，构造与后面预处理相同高宽比的随机张量，减少首帧延迟
             dummy_img = torch.rand(1, 3, int(self.image_size * 0.7), self.image_size).to(self.device)
             if self.half_precision:
                 dummy_img = dummy_img.half()
@@ -54,7 +54,7 @@ class YOLOv7:
         iou_thres: float = 0.45,
         classes: Optional[List[str]] = None,
         agnostic_nms: bool = False,
-    ) -> ObjectDetections:
+    ) -> ObjectDetections:             #推理接口：输入为rgb图、阈值、类别过滤、是否类无关NMS
         """
         Outputs bounding box and class prediction data for the given image.
 
