@@ -65,22 +65,22 @@ class YOLOv7:
             classes (list): List of classes to filter by.
             agnostic_nms (bool): Whether to use agnostic NMS.
         """
-        orig_shape = image.shape
+        orig_shape = image.shape # 记录原始图像形状，后面坐标映射归一化会用
 
         # Preprocess image
         img = cv2.resize(
             image,
             (self.image_size, int(self.image_size * 0.7)),
             interpolation=cv2.INTER_AREA,
-        )
-        img = letterbox(img, new_shape=self.image_size)[0]
-        img = img.transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-        img = np.ascontiguousarray(img)
+        ) # 把图像缩放到宽不变，高乘0.7（强制缩放）
+        img = letterbox(img, new_shape=self.image_size)[0] # 再进行缩放到正方形
+        img = img.transpose(2, 0, 1)  # BGR to RGB, to 3x416x416  HWC → CHW
+        img = np.ascontiguousarray(img) # 确保内存连续，便于转成torch张量
 
-        img = torch.from_numpy(img).to(self.device)
-        img = img.half() if self.half_precision else img.float()  # uint8 to fp16/32
-        img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
+        img = torch.from_numpy(img).to(self.device) # 转张量到设备
+        img = img.half() if self.half_precision else img.float()  # uint8 to fp16/32 转为FP16或FP32
+        img /= 255.0  # 0 - 255 to 0.0 - 1.0 归一化到0-1
+        if img.ndimension() == 3: #保证batch维度存在
             img = img.unsqueeze(0)
 
         # Inference
